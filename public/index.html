@@ -1,0 +1,184 @@
+```html
+<!DOCTYPE html>
+<html ng-app="DataFlowApp">
+
+<head>
+    <meta charset="UTF-8">
+
+    <title>XML Data Flow: AngularJS, Node.js, MongoDB</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.3/angular.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        input {
+            margin: 4px;
+            padding: 6px;
+        }
+
+        button {
+            padding: 6px 14px;
+        }
+
+        pre {
+            background: #f4f4f4;
+            border: 1px solid #ccc;
+            padding: 10px;
+            max-width: 420px;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            border: 1px solid #999;
+            padding: 6px 12px;
+        }
+
+        .msg {
+            margin-top: 10px;
+            color: #b00;
+        }
+
+        .ok {
+            color: #070;
+        }
+    </style>
+</head>
+
+<body ng-controller="PipelineController">
+
+    <h2>Student Record Entry</h2>
+
+    <!-- Form capture: two-way bindings for roll, name, dept, sem -->
+    <input type="text" ng-model="form.roll" placeholder="Roll">
+    <input type="text" ng-model="form.name" placeholder="Name">
+    <input type="text" ng-model="form.dept" placeholder="Department">
+    <input type="text" ng-model="form.sem" placeholder="Semester">
+
+    <button ng-click="triggerPost()">Submit Record</button>
+
+    <div class="msg" ng-class="{ok: isOk}">
+        {{ message }}
+    </div>
+
+    <h3>XML that will be sent (POST body)</h3>
+
+    <pre>{{ xmlPreview }}</pre>
+
+    <h2>Records from MongoDB (GET response, JSON)</h2>
+
+    <table>
+        <tr>
+            <th>Roll</th>
+            <th>Name</th>
+            <th>Dept</th>
+            <th>Sem</th>
+            <th>Created</th>
+        </tr>
+
+        <tr ng-repeat="r in activeRecords">
+            <td>{{ r.roll }}</td>
+            <td>{{ r.name }}</td>
+            <td>{{ r.dept }}</td>
+            <td>{{ r.sem }}</td>
+            <td>{{ r.createdAt | date:'medium' }}</td>
+        </tr>
+    </table>
+
+    <script>
+        angular.module('DataFlowApp', [])
+            .controller('PipelineController', function ($scope, $http) {
+
+                $scope.form = {};
+                $scope.activeRecords = [];
+                $scope.message = '';
+                $scope.isOk = false;
+                $scope.xmlPreview = '';
+
+                // Escape the five special XML characters so the XML stays well-formed
+                function esc(v) {
+                    return String(v === undefined || v === null ? '' : v)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&apos;');
+                }
+
+                // Build the XML string exactly as designed in Part 3
+                function buildXml(f) {
+                    return '<student>\n' +
+                        '  <roll>' + esc(f.roll) + '</roll>\n' +
+                        '  <name>' + esc(f.name) + '</name>\n' +
+                        '  <dept>' + esc(f.dept) + '</dept>\n' +
+                        '  <sem>' + esc(f.sem) + '</sem>\n' +
+                        '</student>';
+                }
+
+                // Live preview so the XML design is visible on the page
+                $scope.$watch('form', function (f) {
+                    $scope.xmlPreview = buildXml(f);
+                }, true);
+
+                // GET: MongoDB -> Node.js -> JSON array -> table
+                $scope.loadRecords = function () {
+
+                    $http.get('/api/students').then(function (res) {
+
+                        $scope.activeRecords = res.data;
+
+                    }, function () {
+
+                        $scope.isOk = false;
+                        $scope.message = 'Could not load records';
+
+                    });
+                };
+
+                // POST: form -> XML string -> Node.js -> MongoDB
+                $scope.triggerPost = function () {
+
+                    var xml = buildXml($scope.form);
+
+                    $http.post('/api/students', xml, {
+                        headers: {
+                            'Content-Type': 'application/xml'
+                        },
+
+                        transformRequest: angular.identity
+                    }).then(function () {
+
+                        $scope.isOk = true;
+                        $scope.message = 'Record saved (201 Created)';
+                        $scope.form = {};
+
+                        // Refresh the table with a new GET
+                        $scope.loadRecords();
+
+                    }, function (err) {
+
+                        $scope.isOk = false;
+                        $scope.message =
+                            (err.data && err.data.error) || 'Request failed';
+
+                    });
+                };
+
+                // Initial GET when the page loads
+                $scope.loadRecords();
+
+            });
+    </script>
+
+</body>
+
+</html>
+```

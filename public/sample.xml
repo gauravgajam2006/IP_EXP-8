@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<student>
+  <roll>101</roll>
+  <name>Sam</name>
+  <dept>CSE</dept>
+  <sem>5</sem>
+</student>
